@@ -19,20 +19,23 @@ def read_csv_numerical(file_path):
             reader = csv.reader(file)
             header = next(reader)
 
-            for row in reader:
-                data.append(row)
+            # for row in reader:
+            #     data.append(row)
             
-            # reach only the first 1000 rows
-            # for i, row in enumerate(reader):
-            #     if i < 1000:
-            #         data.append(row)
-            #     else:
-            #         break
+            #reach only the first 1000 rows
+            for i, row in enumerate(reader):
+                if i < 100000:
+                    data.append(row)
+                else:
+                    break
         if not data:
             print("No data found in the CSV file.")
             return None
 
         df = pd.DataFrame(data, columns=header)
+        # keep only the ones with more that 2 commits
+        df = df[df['commits'].astype(int) > 1]
+        
         print(f"\nLoaded {len(df)} rows from the CSV file.")
         print("DataFrame Preview:")
         print(df.head())
@@ -44,7 +47,8 @@ def read_csv_numerical(file_path):
 
 def calculate_difference_vector(df):
     try:
-        df['commit_date'] = pd.to_datetime(df['commit_date'], errors='coerce')
+        # df['commit_date'] = df['commit_date'].replace('', np.nan)
+        # df['commit_date'] = pd.to_datetime(df['commit_date'], errors='coerce')
         
         # size
         print(f"\nDataFrame before dropping rows with invalid 'commit_date': {len(df)} rows.")

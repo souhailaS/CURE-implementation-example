@@ -34,7 +34,7 @@ def read_csv_numerical(file_path):
 
         df = pd.DataFrame(data, columns=header)
         # keep only the ones with more that 2 commits
-        df = df[df['commits'].astype(int) > 1]
+        # df = df[df['commits'].astype(int) > 1]
         
         print(f"\nLoaded {len(df)} rows from the CSV file.")
         print("DataFrame Preview:")

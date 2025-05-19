@@ -19,15 +19,15 @@ def read_csv_numerical(file_path):
             reader = csv.reader(file)
             header = next(reader)
 
-            # for row in reader:
-            #     data.append(row)
+            for row in reader:
+                data.append(row)
             
             #reach only the first 1000 rows
-            for i, row in enumerate(reader):
-                if i < 100000:
-                    data.append(row)
-                else:
-                    break
+            # for i, row in enumerate(reader):
+            #     if i < 100000:
+            #         data.append(row)
+            #     else:
+            #         break
         if not data:
             print("No data found in the CSV file.")
             return None

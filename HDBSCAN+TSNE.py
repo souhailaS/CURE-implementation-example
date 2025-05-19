@@ -42,11 +42,11 @@ def calculate_difference_vector(df):
         for api_spec_id, group in df.groupby('api_spec_id'):
             first_commit = group.iloc[0]
             last_commit = group.iloc[-1]
-            columns_to_exclude = ['api_spec_id', 'api_version', 'commits', 'commit_date']
+            columns_to_exclude = ['api_spec_id', 'api_version', 'commits', 'commit_date'] # should we keep the commits for the clustering ??
             numeric_first = pd.to_numeric(first_commit.drop(columns_to_exclude, errors='ignore'), errors='coerce').fillna(0)
             numeric_last = pd.to_numeric(last_commit.drop(columns_to_exclude, errors='ignore'), errors='coerce').fillna(0)
             
-            ## Here creating the representative vector for each API 
+            # this is the difference vector that represent each API.
             difference_vector = numeric_last - numeric_first
             difference_vector['api_spec_id'] = api_spec_id
             difference_vector['commit_date'] = last_commit['commit_date']
@@ -60,15 +60,15 @@ def calculate_difference_vector(df):
         print(f"Error calculating difference vectors: {e}")
         return None
 
-def cluster_and_save(diff_df):
-    columns_to_exclude = ['api_spec_id', 'commit_date']
-    clustering_data = diff_df.drop(columns=columns_to_exclude, errors='ignore')
+def cluster_and_save(df):
+    columns_to_exclude = ['api_spec_id', 'api_version', 'commits', 'commit_date']
+    clustering_data = df.drop(columns=columns_to_exclude, errors='ignore')
     clustering_data = clustering_data.apply(pd.to_numeric, errors='coerce').fillna(0)
     X = clustering_data.values
 
     clusterer = hdbscan.HDBSCAN(min_cluster_size=5, min_samples=3, cluster_selection_epsilon=0.5)
     labels = clusterer.fit_predict(X)
-    diff_df['cluster'] = labels
+    df['cluster_number'] = labels
 
     print("\nHDBSCAN Clustering Results:")
     print(f"Number of clusters (excluding noise): {len(set(labels)) - (1 if -1 in labels else 0)}")
@@ -82,9 +82,9 @@ def cluster_and_save(diff_df):
         else:
             print(f"Cluster {cluster_label}: {count} points")
 
-    output_df = diff_df[['api_spec_id', 'cluster', 'commit_date']]
-    output_df.to_csv('api_clustering_diff_vector.csv', index=False)
-    print("\nClustered data saved to 'api_clustering_diff_vector.csv'")
+    output_df = df[['api_spec_id', 'cluster_number', 'api_version', 'commits', 'commit_date']]
+    output_df.to_csv('api_clustering_all_commits.csv', index=False)
+    print("\nClustered data saved to 'api_clustering_all_commits.csv'")
 
     tsne = TSNE(n_components=2, random_state=42, perplexity=30)
     X_tsne = tsne.fit_transform(X)
@@ -100,7 +100,7 @@ def cluster_and_save(diff_df):
             color = plt.cm.get_cmap('viridis')(float(label) / (len(unique_labels) - 1))
             plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=[color], s=1, label=f'Cluster {label}', alpha=0.7)
 
-    plt.title('API Clustering with HDBSCAN and t-SNE (Difference Vectors)', fontsize=14)
+    plt.title('API Clustering with HDBSCAN and t-SNE (All Commits)', fontsize=14)
     plt.xlabel('t-SNE Component 1', fontsize=12)
     plt.ylabel('t-SNE Component 2', fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.5)
@@ -111,6 +111,4 @@ file_path = 'oas.commits.metrics.csv'
 df = read_csv_numerical(file_path)
 
 if df is not None:
-    diff_df = calculate_difference_vector(df)
-    if diff_df is not None:
-        cluster_and_save(diff_df)
+    cluster_and_save(df)

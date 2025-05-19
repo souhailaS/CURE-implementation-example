@@ -21,6 +21,16 @@ def read_csv_numerical(file_path):
 
             for row in reader:
                 data.append(row)
+            
+            # reach only the first 1000 rows
+            # for i, row in enumerate(reader):
+            #     if i < 1000:
+            #         data.append(row)
+            #     else:
+            #         break
+        if not data:
+            print("No data found in the CSV file.")
+            return None
 
         df = pd.DataFrame(data, columns=header)
         print(f"\nLoaded {len(df)} rows from the CSV file.")
@@ -35,7 +45,11 @@ def read_csv_numerical(file_path):
 def calculate_difference_vector(df):
     try:
         df['commit_date'] = pd.to_datetime(df['commit_date'], errors='coerce')
+        
+        # size
+        print(f"\nDataFrame before dropping rows with invalid 'commit_date': {len(df)} rows.")
         df = df.dropna(subset=['commit_date'])
+        print(f"DataFrame after dropping rows with invalid 'commit_date': {len(df)} rows remaining.")
         df = df.sort_values(['api_spec_id', 'commit_date'])
         difference_vectors = []
 
@@ -69,11 +83,11 @@ def cluster_apis(df):
     clusterer = hdbscan.HDBSCAN(min_cluster_size=5, min_samples=3, cluster_selection_epsilon=0.5)
     labels = clusterer.fit_predict(X)
     df['cluster_number'] = labels
-    return df[['api_spec_id', 'cluster_number']]
+    return df[['api_spec_id', 'cluster_number']]  
 
 def cluster_and_save(df, cluster_df):
     cluster_mapping = cluster_df.set_index('api_spec_id')['cluster_number'].to_dict()
-    df['cluster_number'] = df['api_spec_id'].map(cluster_mapping)
+    df['cluster_number'] = df['api_spec_id'].map(cluster_mapping).fillna(-1).astype(int)
 
     print("\nHDBSCAN Clustering Results:")
     unique_clusters = df['cluster_number'].unique()
@@ -107,7 +121,7 @@ def cluster_and_save(df, cluster_df):
     plt.legend(loc='upper right', markerscale=10)
     plt.show()
 
-file_path = 'oas.commits.metrics.csv'
+file_path = '/Users/souhailaserbout/Documents/oas.commits.metrics.csv'
 df = read_csv_numerical(file_path)
 
 if df is not None:

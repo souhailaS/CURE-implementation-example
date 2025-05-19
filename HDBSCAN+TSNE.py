@@ -60,8 +60,8 @@ def calculate_difference_vector(df):
         print(f"Error calculating difference vectors: {e}")
         return None
 
-def cluster_and_save(df):
-    columns_to_exclude = ['api_spec_id', 'api_version', 'commits', 'commit_date']
+def cluster_apis(df):
+    columns_to_exclude = ['api_spec_id', 'commit_date']
     clustering_data = df.drop(columns=columns_to_exclude, errors='ignore')
     clustering_data = clustering_data.apply(pd.to_numeric, errors='coerce').fillna(0)
     X = clustering_data.values
@@ -69,38 +69,38 @@ def cluster_and_save(df):
     clusterer = hdbscan.HDBSCAN(min_cluster_size=5, min_samples=3, cluster_selection_epsilon=0.5)
     labels = clusterer.fit_predict(X)
     df['cluster_number'] = labels
+    return df[['api_spec_id', 'cluster_number']]
+
+def cluster_and_save(df, cluster_df):
+    cluster_mapping = cluster_df.set_index('api_spec_id')['cluster_number'].to_dict()
+    df['cluster_number'] = df['api_spec_id'].map(cluster_mapping)
 
     print("\nHDBSCAN Clustering Results:")
-    print(f"Number of clusters (excluding noise): {len(set(labels)) - (1 if -1 in labels else 0)}")
-    print("Cluster Labels:")
-    print(labels)
-    print("\nCluster Information:")
-    for cluster_label in set(labels):
-        count = sum(labels == cluster_label)
+    unique_clusters = df['cluster_number'].unique()
+    print(f"Number of clusters (excluding noise): {len(unique_clusters) - (1 if -1 in unique_clusters else 0)}")
+    for cluster_label in unique_clusters:
+        count = sum(df['cluster_number'] == cluster_label)
         if cluster_label == -1:
             print(f"Noise: {count} points")
         else:
             print(f"Cluster {cluster_label}: {count} points")
 
     output_df = df[['api_spec_id', 'cluster_number', 'api_version', 'commits', 'commit_date']]
-    output_df.to_csv('api_clustering_all_commits.csv', index=False)
-    print("\nClustered data saved to 'api_clustering_all_commits.csv'")
+    output_df.to_csv('api_clustering_diff_vector.csv', index=False)
+    print("\nClustered data saved to 'api_clustering_diff_vector.csv'")
 
     tsne = TSNE(n_components=2, random_state=42, perplexity=30)
+    X = df.drop(columns=['api_spec_id', 'api_version', 'commits', 'commit_date', 'cluster_number'], errors='ignore').apply(pd.to_numeric, errors='coerce').fillna(0).values
     X_tsne = tsne.fit_transform(X)
 
     plt.figure(figsize=(8, 8))
-    unique_labels = set(labels)
+    unique_labels = set(df['cluster_number'])
     for label in unique_labels:
-        cluster_points = X_tsne[labels == label]
-        if label == -1:
-            color = 'gray'
-            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=color, s=1, label="Noise", alpha=0.7)
-        else:
-            color = plt.cm.get_cmap('viridis')(float(label) / (len(unique_labels) - 1))
-            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=[color], s=1, label=f'Cluster {label}', alpha=0.7)
+        cluster_points = X_tsne[df['cluster_number'] == label]
+        color = 'gray' if label == -1 else plt.cm.get_cmap('viridis')(float(label) / (len(unique_labels) - 1))
+        plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=[color], s=1, label=f'Cluster {label}', alpha=0.7)
 
-    plt.title('API Clustering with HDBSCAN and t-SNE (All Commits)', fontsize=14)
+    plt.title('API Clustering with HDBSCAN and t-SNE (Difference Vectors)', fontsize=14)
     plt.xlabel('t-SNE Component 1', fontsize=12)
     plt.ylabel('t-SNE Component 2', fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.5)
@@ -111,4 +111,7 @@ file_path = 'oas.commits.metrics.csv'
 df = read_csv_numerical(file_path)
 
 if df is not None:
-    cluster_and_save(df)
+    diff_df = calculate_difference_vector(df)
+    if diff_df is not None:
+        cluster_df = cluster_apis(diff_df)
+        cluster_and_save(df, cluster_df)
